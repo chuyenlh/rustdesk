@@ -458,7 +458,11 @@ $bridgeFiles = @(
     "flutter\lib\generated_bridge.freezed.dart"
 )
 $bridgeMissing = @($bridgeFiles | Where-Object { -not (Test-Path (Join-Path $RepoRoot $_)) })
-if ($GenerateBridge -or $bridgeMissing.Count -gt 0) {
+# The bridge is generated from src/flutter_ffi.rs; after a pull that changes it, the old bridge no longer compiles.
+$bridgeStale = $bridgeMissing.Count -eq 0 -and
+    (Get-Item (Join-Path $RepoRoot "src\flutter_ffi.rs")).LastWriteTime -gt (Get-Item (Join-Path $RepoRoot "src\bridge_generated.rs")).LastWriteTime
+if ($bridgeStale) { Write-Host "src\flutter_ffi.rs is newer than the generated bridge; regenerating it." }
+if ($GenerateBridge -or $bridgeStale -or $bridgeMissing.Count -gt 0) {
     Write-Step "flutter_rust_bridge $FrbVersion codegen"
     Invoke-Checked cargo @("install", "cargo-expand", "--version", $CargoExpandVersion, "--locked")
     Invoke-Checked cargo @("install", "flutter_rust_bridge_codegen", "--version", $FrbVersion, "--features", "uuid", "--locked")
